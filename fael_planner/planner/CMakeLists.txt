@@ -25,7 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
         traversability_analysis
 #        visualization_tools #这个包里没有库
         )
-
+find_package(OpenCV REQUIRED)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -138,6 +138,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
         include
+        ${OpenCV_INCLUDE_DIRS}
         ${catkin_INCLUDE_DIRS}
         or-tools/include
 )
@@ -155,6 +156,7 @@ add_library(topo_planner
         src/preprocess/topo_graph.cpp
         src/topo_planner/topo_planner.cpp
         src/rapid_cover_planner/rapid_cover_planner.cpp
+        src/perception/cloud_processor.cpp
         )
 add_dependencies(topo_planner ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -168,6 +170,7 @@ add_dependencies(topo_planner_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_
 target_link_libraries(topo_planner_node
         topo_planner
         ${catkin_LIBRARIES}
+        ${OpenCV_LIBRARIES}
         )
 
 #############

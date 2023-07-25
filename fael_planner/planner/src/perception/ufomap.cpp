@@ -11,6 +11,10 @@ namespace perception {
             transform_timeout_(0, 100000000), known_plane_cell_num_(0),
             lidar_(nh_private_.param("UFOMap/no_ray_range", 50)),
             map_(nh_private_.param("UFOMap/resolution", 0.1),
+                 nh_private_.param("UFOMap/depth_levels", 16), true),
+            walls_(nh_private_.param("UFOMap/resolution", 0.1),
+                 nh_private_.param("UFOMap/depth_levels", 16), true),
+            obs_(nh_private_.param("UFOMap/resolution", 0.1),
                  nh_private_.param("UFOMap/depth_levels", 16), true) {
         setParametersFromROS();
 
@@ -39,6 +43,8 @@ namespace perception {
         fout.close();
 
         map_.enableChangeDetection(true);
+        walls_.enableChangeDetection(true);
+        obs_.enableChangeDetection(true);
 
         point_cloud_sub_.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh_, "point_cloud", 1));
         odom_sub_.reset(new message_filters::Subscriber<nav_msgs::Odometry>(nh_, "sensor_odometry", 1000));
@@ -63,6 +69,10 @@ namespace perception {
         local_frontiers_pub_ = nh_private_.advertise<visualization_msgs::MarkerArray>("local_frontier_marker", 1);
         global_frontiers_pub_ = nh_private_.advertise<visualization_msgs::MarkerArray>("global_frontier_marker", 1);
         ploygon_pub_ = nh_private_.advertise<geometry_msgs::PolygonStamped>("polygon",1);
+
+        ngcw_pub = nh.advertise<sensor_msgs::PointCloud2>("/trolley/lidar/ob_left", 10);
+	    gc_pub = nh.advertise<sensor_msgs::PointCloud2>("/trolley/lidar/ground_ceilling", 10);
+	    wall_pub = nh.advertise<sensor_msgs::PointCloud2>("/trolley/lidar/wall", 10);
 
         ROS_INFO("frontier_manager construct finish");
     }
@@ -201,6 +211,27 @@ namespace perception {
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr scan_cloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
         pcl::fromROSMsg(*scan, *scan_cloud);
+
+        //extract wall pcl
+        pcl::PointCloud<pcl::PointR> cloud_msg;
+        pcl::fromROSMsg(*scan, cloud_msg);
+        cloud_processor.setCloudInput(cloud_msg);
+        ROS_WARN("process");
+	    cloud_processor.processCloud();
+        
+        sensor_msgs::PointCloud2 pub_cloud;
+        pcl::toROSMsg(cloud_processor.cloud_gc, pub_cloud);
+        pub_cloud.header.frame_id = frame_id_;
+        gc_pub.publish(pub_cloud);
+        //publish ceilling
+        pcl::toROSMsg(cloud_processor.cloud_ngcw, pub_cloud);
+        pub_cloud.header.frame_id = frame_id_;
+        ngcw_pub.publish(pub_cloud);
+        //publish no_ground
+        pcl::toROSMsg(cloud_processor.cloud_contour, pub_cloud);
+        pub_cloud.header.frame_id = frame_id_;
+        wall_pub.publish(pub_cloud);
+
 
         map_mutex_.lock();
         insert_num++;

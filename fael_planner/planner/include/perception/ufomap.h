@@ -9,6 +9,7 @@
 
 #include "perception/map_3d.h"
 #include "perception/lidar_model.h"
+#include "perception/cloud_processor.h"
 #include <ufomap_manager/frontier_manager.h>
 #include <ros/package.h>
 
@@ -103,6 +104,8 @@ namespace perception {
         ros::Publisher global_frontiers_pub_;
         ros::Publisher ploygon_pub_;
 
+        ros::Publisher ngcw_pub, gc_pub, wall_pub;
+
         ros::Timer pub_timer_;
         ros::Timer frontier_timer_;
         ros::Timer write_ufomap_timer_;
@@ -113,8 +116,9 @@ namespace perception {
         ros::Duration transform_timeout_; // "How long to wait for transform (s)",
 
         // map
-        ufo::map::OccupancyMap map_;
+        ufo::map::OccupancyMap map_, walls_, obs_;
         std::string frame_id_;
+        CloudProcessor cloud_processor;
 
         // position
         ufo::math::Pose6 current_robot_pose_;  
