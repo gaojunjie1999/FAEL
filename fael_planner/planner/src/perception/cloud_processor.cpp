@@ -115,21 +115,26 @@ void CloudProcessor::ZeroOutGroundCeillingBFS()
     }
     //wall removal
     for (int c = 0; c < label_mat.cols; c++) {
-        for (int r = 0; r < label_mat.rows; r++) {
+        //for (int r = 0; r < label_mat.rows; r++) {
+        for (int r = label_mat.rows - 1; r >= 0; r--) {
             if (range_mat.at<float>(r, c) < 0.001f) 
                 continue;     
             if (label_mat.at<uint16_t>(r, c) > 0) 
                 continue;
             //if (r == 0 && smoothed_mat.at<float>(1, c) < start_angle_thresh) 
-               // continue;       
-            
-            //LabelPixel(label_contour, r, c);
+               // continue;    
 
-
-
-            if (smoothed_mat.at<float>(r, c) < 85 * Pi / 180) 
+            pcl::PointR pt;
+            UnprojectPoint(range_mat, r, c, pt);
+            if (pt.z < 1.5)
                 continue;
-            label_mat.at<uint16_t>(r, c) = label_contour;
+            LabelPixel(label_contour, r, c);
+
+
+
+           /* if (smoothed_mat.at<float>(r, c) < 85 * Pi / 180) 
+                continue;
+            label_mat.at<uint16_t>(r, c) = label_contour;*/
 
         }
     }
@@ -887,6 +892,11 @@ void CloudProcessor::toCloud(const cv::Mat& image_mat)
                 continue;
             pcl::PointR pt;
             UnprojectPoint(image_mat, i, j, pt);
+
+            /*if (image_type != GC) {
+                ROS_WARN("x=%f, y=%f, z=%f", pt.x, pt.y, pt.z);
+            }*/
+
             pt_cloud.points.push_back(pt);
         }
     }

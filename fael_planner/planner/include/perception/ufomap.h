@@ -96,7 +96,7 @@ namespace perception {
         typedef std::shared_ptr<message_filters::Synchronizer<SyncPolicyLocalCloudOdom>> SynchronizerLocalCloudOdom;
         SynchronizerLocalCloudOdom sync_point_cloud_odom_;
 
-        ros::Publisher map_pub_;
+        ros::Publisher map_pub_, submap_wall_pub_;
         ros::Publisher cloud_pub_;
         ros::Publisher expand_cloud_pub_;
         ros::Publisher map_and_frontiers_pub_;
@@ -113,10 +113,11 @@ namespace perception {
         // TF2
         tf2_ros::Buffer tf_buffer_;
         tf2_ros::TransformListener tf_listener_;
+        tf::TransformListener tf_pcl;
         ros::Duration transform_timeout_; // "How long to wait for transform (s)",
 
         // map
-        ufo::map::OccupancyMap map_, walls_, obs_;
+        ufo::map::OccupancyMap map_, submap_wall_, submap_ob_;
         std::string frame_id_;
         CloudProcessor cloud_processor;
 
@@ -163,8 +164,8 @@ namespace perception {
 
 
         // use code to index frontier points
-        CodeUnorderSet changed_cell_codes_;  
-        CodeUnorderSet known_cell_codes_;  
+        CodeUnorderSet changed_cell_codes_, changed_cell_codes_wall;  
+        CodeUnorderSet known_cell_codes_, known_cell_codes_wall;  
         std::size_t known_cell_num_;
         std::size_t known_plane_cell_num_;
 

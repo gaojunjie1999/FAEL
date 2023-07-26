@@ -12,9 +12,9 @@ namespace perception {
             lidar_(nh_private_.param("UFOMap/no_ray_range", 50)),
             map_(nh_private_.param("UFOMap/resolution", 0.1),
                  nh_private_.param("UFOMap/depth_levels", 16), true),
-            walls_(nh_private_.param("UFOMap/resolution", 0.1),
+            submap_wall_(nh_private_.param("UFOMap/resolution", 0.1),
                  nh_private_.param("UFOMap/depth_levels", 16), true),
-            obs_(nh_private_.param("UFOMap/resolution", 0.1),
+            submap_ob_(nh_private_.param("UFOMap/resolution", 0.1),
                  nh_private_.param("UFOMap/depth_levels", 16), true) {
         setParametersFromROS();
 
@@ -43,8 +43,8 @@ namespace perception {
         fout.close();
 
         map_.enableChangeDetection(true);
-        walls_.enableChangeDetection(true);
-        obs_.enableChangeDetection(true);
+        submap_wall_.enableChangeDetection(true);
+        submap_ob_.enableChangeDetection(true);
 
         point_cloud_sub_.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh_, "point_cloud", 1));
         odom_sub_.reset(new message_filters::Subscriber<nav_msgs::Odometry>(nh_, "sensor_odometry", 1000));
@@ -62,6 +62,8 @@ namespace perception {
             map_and_frontiers_pub_ = nh_private_.advertise<ufomap_manager::UfomapWithFrontiers>("ufomap_and_frontiers",
                                                                                                 1);
             pub_timer_ = nh_private_.createTimer(ros::Rate(pub_rate_), &Ufomap::ufomapPublishTimer, this);
+
+            submap_wall_pub_ = nh_private_.advertise<ufomap_msgs::UFOMapStamped>("submap_wall", 1);
         }
 
         expand_cloud_pub_ = nh_private_.advertise<sensor_msgs::PointCloud2>("expand_cloud", 1);
@@ -212,6 +214,13 @@ namespace perception {
         pcl::PointCloud<pcl::PointXYZ>::Ptr scan_cloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
         pcl::fromROSMsg(*scan, *scan_cloud);
 
+
+
+
+
+
+
+
         //extract wall pcl
         pcl::PointCloud<pcl::PointR> cloud_msg;
         pcl::fromROSMsg(*scan, cloud_msg);
@@ -220,20 +229,112 @@ namespace perception {
 	    cloud_processor.processCloud();
         
         sensor_msgs::PointCloud2 pub_cloud;
-        pcl::toROSMsg(cloud_processor.cloud_gc, pub_cloud);
+        tf::StampedTransform T_b_bi;
+        try{
+            tf_pcl.lookupTransform("map", "sensor", odom->header.stamp, T_b_bi);
+        }
+        catch (tf::TransformException &ex) {
+            ROS_ERROR("%s",ex.what());
+        }
+        Eigen::Matrix4f pose;
+        pose << T_b_bi.getBasis()[0][0], T_b_bi.getBasis()[0][1], T_b_bi.getBasis()[0][2], T_b_bi.getOrigin()[0],
+                T_b_bi.getBasis()[1][0], T_b_bi.getBasis()[1][1], T_b_bi.getBasis()[1][2], T_b_bi.getOrigin()[1],
+                T_b_bi.getBasis()[2][0], T_b_bi.getBasis()[2][1], T_b_bi.getBasis()[2][2], T_b_bi.getOrigin()[2],
+                0, 0, 0, 1;
+        pcl::PointCloud<pcl::PointXYZI>::Ptr registered_scan = boost::make_shared<pcl::PointCloud<pcl::PointXYZI>>();
+
+        for (auto &point: cloud_processor.cloud_gc.points) {
+            pcl::PointXYZI reg_point;
+            reg_point.x = point.x * pose(0, 0) + point.y * pose(0, 1) + point.z * pose(0, 2) + pose(0, 3);
+            reg_point.y = point.x * pose(1, 0) + point.y * pose(1, 1) + point.z * pose(1, 2) + pose(1, 3);
+            reg_point.z = point.x * pose(2, 0) + point.y * pose(2, 1) + point.z * pose(2, 2) + pose(2, 3);
+            reg_point.intensity = point.intensity;
+            registered_scan->points.push_back(reg_point);
+        }
+        pcl::toROSMsg(*registered_scan, pub_cloud);
         pub_cloud.header.frame_id = frame_id_;
         gc_pub.publish(pub_cloud);
+        registered_scan->clear();
+
         //publish ceilling
-        pcl::toROSMsg(cloud_processor.cloud_ngcw, pub_cloud);
+        for (auto &point: cloud_processor.cloud_ngcw.points) {
+            pcl::PointXYZI reg_point;
+            reg_point.x = point.x * pose(0, 0) + point.y * pose(0, 1) + point.z * pose(0, 2) + pose(0, 3);
+            reg_point.y = point.x * pose(1, 0) + point.y * pose(1, 1) + point.z * pose(1, 2) + pose(1, 3);
+            reg_point.z = point.x * pose(2, 0) + point.y * pose(2, 1) + point.z * pose(2, 2) + pose(2, 3);
+            reg_point.intensity = point.intensity;
+            registered_scan->points.push_back(reg_point);
+        }
+        pcl::toROSMsg(*registered_scan, pub_cloud);
         pub_cloud.header.frame_id = frame_id_;
         ngcw_pub.publish(pub_cloud);
+        registered_scan->clear();
+
         //publish no_ground
-        pcl::toROSMsg(cloud_processor.cloud_contour, pub_cloud);
+        for (auto &point: cloud_processor.cloud_contour.points) {
+            pcl::PointXYZI reg_point;
+            reg_point.x = point.x * pose(0, 0) + point.y * pose(0, 1) + point.z * pose(0, 2) + pose(0, 3);
+            reg_point.y = point.x * pose(1, 0) + point.y * pose(1, 1) + point.z * pose(1, 2) + pose(1, 3);
+            reg_point.z = point.x * pose(2, 0) + point.y * pose(2, 1) + point.z * pose(2, 2) + pose(2, 3);
+            reg_point.intensity = point.intensity;
+            registered_scan->points.push_back(reg_point);
+        }
+
+        pcl::toROSMsg(*registered_scan, pub_cloud);
         pub_cloud.header.frame_id = frame_id_;
         wall_pub.publish(pub_cloud);
 
-
+        //wall cloud to ufomap
         map_mutex_.lock();
+
+        ufo::map::PointCloud wall_cloud;
+        for (auto &point: registered_scan->points) {
+            wall_cloud.push_back(ufo::map::Point3(point.x, point.y, point.z));
+        }
+        wall_cloud.transform(current_sensor_pose_);
+
+        ufo::map::KeySet key_set_wall;
+        ufo::map::PointCloud cloud_wall;
+        for (const auto &point: wall_cloud) {
+            if (key_set_wall.insert(submap_wall_.toKey(point, 0)).second) {
+                cloud_wall.push_back(submap_wall_.toCoord(submap_wall_.toKey(point, 0), 0));  
+            }
+        }
+        if (insert_discrete_) {
+            submap_wall_.insertPointCloudDiscrete(current_sensor_pose_.translation(), cloud_wall, max_range_, insert_depth_,
+                                          simple_ray_casting_, early_stopping_, false);
+        } else {
+            submap_wall_.insertPointCloud(current_sensor_pose_.translation(), cloud_wall, max_range_, insert_depth_,
+                                  simple_ray_casting_, early_stopping_, false);
+        }
+        try {
+            geometry_msgs::TransformStamped T_s_b = tf_buffer_.lookupTransform(sensor_frame_id_, robot_base_frame_id_,
+                                                                               odom->header.stamp);
+            ufo::math::Pose6 T_S_B = ufomap_ros::rosToUfo(T_s_b.transform);
+            current_robot_pose_ = current_sensor_pose_ * T_S_B;
+
+            if (clear_robot_enabled_) {
+                ufo::map::Point3 robot_bbx_min(current_robot_pose_.x() - sensor_height_,
+                                               current_robot_pose_.y() - sensor_height_,
+                                               current_robot_pose_.z() - robot_bottom_);
+                ufo::map::Point3 robot_bbx_max(current_robot_pose_.x() + sensor_height_,
+                                               current_robot_pose_.y() + sensor_height_,
+                                               current_robot_pose_.z() + robot_height_);
+                ufo::geometry::AABB aabb(robot_bbx_min, robot_bbx_max);  
+                submap_wall_.setValueVolume(aabb, submap_wall_.getClampingThresMin(), clearing_depth_);
+            }
+        }
+        catch (tf2::TransformException &ex) {
+            ROS_WARN("submap_wall with frontier current pose acquire---      %s ", ex.what());
+        }
+
+
+
+
+
+
+
+        //map_mutex_.lock();
         insert_num++;
         auto insert_start_time = ros::WallTime::now();
 
@@ -303,7 +404,24 @@ namespace perception {
         msg.header = header;
         map_pub_.publish(msg);//publish map
 
-        if (0 < cloud_pub_.getNumSubscribers() || cloud_pub_.isLatched()) {
+        ufomap_msgs::UFOMapStamped wall_msg;
+        ufomap_msgs::ufoToMsg(submap_wall_, wall_msg.map, false);
+        wall_msg.header = header;
+        submap_wall_pub_.publish(wall_msg);//publish submap_wall
+
+        changed_cell_codes_wall.clear();
+        int count = 0;
+        for (auto it = submap_wall_.changesBegin(); it != submap_wall_.changesEnd(); it++) {
+            //ROS_WARN("CHANGE ONE");
+            count++;
+            changed_cell_codes_wall.insert(*it);
+        }
+        ROS_WARN("count=%d",count);
+
+        known_cell_codes_wall.insert(changed_cell_codes_wall.begin(), changed_cell_codes_.end());
+        submap_wall_.resetChangeDetection();
+
+        /*if (0 < cloud_pub_.getNumSubscribers() || cloud_pub_.isLatched()) {
             ufo::map::PointCloud cloud;
             for (auto it = map_.beginLeaves(true, false, false, false, 0),
                          it_end = map_.endLeaves();
@@ -345,7 +463,7 @@ namespace perception {
         point_4.z = current_sensor_pose_.z();
         polygon.polygon.points.push_back(point_4);
 
-        ploygon_pub_.publish(polygon);
+        ploygon_pub_.publish(polygon);*/
 
         map_mutex_.unlock();
     }
