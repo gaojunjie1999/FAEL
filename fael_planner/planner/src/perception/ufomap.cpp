@@ -64,6 +64,7 @@ namespace perception {
             pub_timer_ = nh_private_.createTimer(ros::Rate(pub_rate_), &Ufomap::ufomapPublishTimer, this);
 
             submap_wall_pub_ = nh_private_.advertise<ufomap_msgs::UFOMapStamped>("submap_wall", 1);
+            submap_ob_pub_   = nh_private_.advertise<ufomap_msgs::UFOMapStamped>("submap_ob", 1);
         }
 
         expand_cloud_pub_ = nh_private_.advertise<sensor_msgs::PointCloud2>("expand_cloud", 1);
@@ -225,7 +226,7 @@ namespace perception {
         pcl::PointCloud<pcl::PointR> cloud_msg;
         pcl::fromROSMsg(*scan, cloud_msg);
         cloud_processor.setCloudInput(cloud_msg);
-        ROS_WARN("process");
+        //ROS_WARN("process");
 	    cloud_processor.processCloud();
         
         sensor_msgs::PointCloud2 pub_cloud;
@@ -270,6 +271,9 @@ namespace perception {
         ngcw_pub.publish(pub_cloud);
         registered_scan->clear();
 
+        ufo::map::PointCloud cloud_ob;
+        ufomap_ros::rosToUfo(pub_cloud, cloud_ob);
+
         //publish no_ground
         for (auto &point: cloud_processor.cloud_contour.points) {
             pcl::PointXYZI reg_point;
@@ -291,7 +295,7 @@ namespace perception {
         for (auto &point: registered_scan->points) {
             wall_cloud.push_back(ufo::map::Point3(point.x, point.y, point.z));
         }
-        wall_cloud.transform(current_sensor_pose_);
+        //wall_cloud.transform(current_sensor_pose_);
 
         ufo::map::KeySet key_set_wall;
         ufo::map::PointCloud cloud_wall;
@@ -328,6 +332,12 @@ namespace perception {
             ROS_WARN("submap_wall with frontier current pose acquire---      %s ", ex.what());
         }
 
+        //ob cloud to ufomap
+        submap_ob_.insertPointCloudDiscrete(current_sensor_pose_.translation(), cloud_ob, max_range_, insert_depth_,
+                                          simple_ray_casting_, early_stopping_, false);
+
+
+        
 
 
 
@@ -408,6 +418,11 @@ namespace perception {
         ufomap_msgs::ufoToMsg(submap_wall_, wall_msg.map, false);
         wall_msg.header = header;
         submap_wall_pub_.publish(wall_msg);//publish submap_wall
+
+        ufomap_msgs::UFOMapStamped ob_msg;
+        ufomap_msgs::ufoToMsg(submap_ob_, ob_msg.map, false);
+        ob_msg.header = header;
+        submap_ob_pub_.publish(ob_msg);//publish submap_wall
 
         changed_cell_codes_wall.clear();
         int count = 0;

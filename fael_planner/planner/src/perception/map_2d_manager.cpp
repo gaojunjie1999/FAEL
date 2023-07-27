@@ -10,6 +10,8 @@ namespace perception {
             : nh_(nh), nh_private_(nh_private), is_map_updated_(false) {
         getParamsFromRos();
         grid_map_2d_pub_ = nh_private_.advertise<visualization_msgs::MarkerArray>("gird_map_2d", 1);
+        wall_map_2d_pub_ = nh_private_.advertise<visualization_msgs::MarkerArray>("wall_map_2d", 1);
+
         odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("base_odometry", 1, &Map2DManager::odomCallback, this);
 
         terrain_map_sub_ = nh_.subscribe<traversability_analysis::TerrainMap>("terrain_map", 1,
@@ -24,6 +26,8 @@ namespace perception {
                                                                         *local_cloud_sub_));
         sync_terrain_local_cloud_->registerCallback(
                 boost::bind(&Map2DManager::terrainLocalCloudCallback, this, _1, _2));
+
+        wall_cloud_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/trolley/lidar/wall", 1, &Map2DManager::wallCallback, this);
 
     }
 
@@ -66,10 +70,28 @@ namespace perception {
                      (ns + "/connectivity_thre").c_str());
         }
 
+        double fix_x = 100.0;
+        double fix_y = 100.0;
+        wall_map_.initialize(grid_size_, fix_x, fix_y, Status2D::Unknown);
+        Eigen::Vector2d center_point(20.0, 20.0);
+        wall_map_.setMapCenterAndBoundary(center_point);
+
     }
 
     void Map2DManager::odomCallback(const nav_msgs::OdometryConstPtr &odom) {
         current_pose_ = odom->pose.pose;
+    }
+
+    void Map2DManager::wallCallback(const sensor_msgs::PointCloud2ConstPtr &wall_cloud) {
+        pcl::fromROSMsg(*wall_cloud, wall_cloud_);
+
+        /*if (local_cloud->header.frame_id != frame_id_) {
+            if (!pcl_ros::transformPointCloud(frame_id_, local_cloud_, local_cloud_, tf_listener_))//Convert to global frame.
+                return;
+        }*/
+
+        updateWallGridMap2D(wall_cloud_);
+        wall_map_2d_pub_.publish(wall_map_.generateMapMarkers(wall_map_.grids_, current_pose_));
     }
 
     void Map2DManager::terrainLocalCloudCallback(const sensor_msgs::PointCloud2ConstPtr &terrain_cloud,
@@ -89,6 +111,33 @@ namespace perception {
 
         updateGridMap2D(terrain_cloud_, local_cloud_);//Use terrain point cloud to update 2D grid status, and alloc grid to local point cloud
         grid_map_2d_pub_.publish(inflate_map_.generateMapMarkers(inflate_map_.grids_, current_pose_));
+    }
+
+    void Map2DManager::updateWallGridMap2D(const pcl::PointCloud<pcl::PointXYZI> &wall_cloud) 
+    {
+        Eigen::Vector2d center_point(current_pose_.position.x, current_pose_.position.y);//center point relative to the global frame
+        pcl::PointXYZI min_p;
+        pcl::PointXYZI max_p;
+        pcl::getMinMax3D(wall_cloud, min_p, max_p);
+
+        /*Index2D min_pt(wall_map_.getIndexInMap2D(min_p));
+        Index2D max_pt(wall_map_.getIndexInMap2D(max_p));
+        for (int i = min_pt(0); i <= max_pt(0); i++) {
+            for (int j = min_pt(1); j <= max_pt(1); j++) {
+                wall_map_.setFree(i, j);
+            }
+        }*/
+
+        for (auto &point: wall_cloud) { 
+            if (wall_map_.isInMapRange2D(point)) {
+                wall_map_.addPointInGrid(wall_map_.getIndexInMap2D(point), point);       
+                wall_map_.setOccupied(wall_map_.getIndexInMap2D(point));
+                cout<<"occ pt id: "<<wall_map_.getIndexInMap2D(point)(0)<<" "<<wall_map_.getIndexInMap2D(point)(1)<<endl;
+            } 
+        }
+        wall_map_.inflateGridMap2D(inflate_radius_, inflate_empty_radius_);
+https://blog.csdn.net/Draonly/article/details/124537069
+        have_wall_map = true;
     }
 
     void Map2DManager::terrainMapCallback(const traversability_analysis::TerrainMapConstPtr &terrain_map) {

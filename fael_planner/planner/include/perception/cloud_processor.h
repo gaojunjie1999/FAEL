@@ -72,7 +72,7 @@ private:
 	int window_size{5};
 	double start_angle_thresh{45.0 / 180.0 * Pi};
 	int step_row{2}, step_col{1};
-	double ground_angle_thresh{5.0 / 180.0 * Pi};
+	double ground_angle_thresh{10.0 / 180.0 * Pi};
 	ImageType image_type{NGCW};
 
 	//proj image related
@@ -104,6 +104,7 @@ public:
 	cv::Mat GetSavitskyGolayKernel() const;
 	void LabelPixel(uint16_t label, int row_id, int col_id);
 	void GetNeighbors(queue<pair<int, int>>& labeling_queue, const int& cur_row, const int& cur_col, const uint16_t label);
+	void GetNeighborsWall(queue<pair<int, int>>& labeling_queue, const int& cur_row, const int& cur_col, const uint16_t label);
 	cv::Mat GetUniformKernel(int window_size, int type) const;
 	void ZeroOutGroundCeillingBFS();
 	void toCloud(const cv::Mat& image_mat);

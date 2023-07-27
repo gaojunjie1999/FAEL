@@ -96,7 +96,7 @@ namespace perception {
         typedef std::shared_ptr<message_filters::Synchronizer<SyncPolicyLocalCloudOdom>> SynchronizerLocalCloudOdom;
         SynchronizerLocalCloudOdom sync_point_cloud_odom_;
 
-        ros::Publisher map_pub_, submap_wall_pub_;
+        ros::Publisher map_pub_, submap_wall_pub_, submap_ob_pub_;
         ros::Publisher cloud_pub_;
         ros::Publisher expand_cloud_pub_;
         ros::Publisher map_and_frontiers_pub_;

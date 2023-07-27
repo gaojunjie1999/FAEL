@@ -6,11 +6,14 @@ Panels:
       Expanded:
         - /Odometry1/Shape1
         - /Odometry1/Covariance1
+        - /UFOMap1
         - /UFOMap1/Voxel Rendering1
         - /UFOMap1/Voxel Rendering1/Occupied1
         - /UFOMap1/Voxel Rendering1/Occupied1/Coloring1
         - /UFOMap1/Use BBX1
         - /local_path_grid_map_2d1/Namespaces1
+        - /MarkerArray1
+        - /Axes2
       Splitter Ratio: 0.5240740776062012
     Tree Height: 686
   - Class: rviz/Selection
@@ -292,19 +295,19 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: UFOMap
-      Enabled: false
+      Enabled: true
       Information:
-        "# Inner Nodes": 11,249
-        "# Leaf Nodes": 29,504
+        "# Inner Nodes": 12,217
+        "# Leaf Nodes": 28,840
         Resolution: 40 cm
-        Size: 291.02 KiB
+        Size: 303.55 KiB
       Min. Depth: 0
       Name: UFOMap
       Occupancy Thresholds:
         Free (%): 50
         Occupied (%): 50
       Queue size: 1
-      UFOMap Topic: /topo_planner_node/ufomap
+      UFOMap Topic: /topo_planner_node/submap_wall
       Use BBX:
         BBX Frame: <Fixed Frame>
         Maximum:
@@ -316,7 +319,7 @@ Visualization Manager:
           Y: -1000
           Z: 0.10000000149011612
         Value: true
-      Value: false
+      Value: true
       Voxel Rendering:
         Free:
           Alpha: 0.029999999329447746
@@ -533,12 +536,12 @@ Visualization Manager:
       Use rainbow: true
       Value: true
     - Class: UFOMap
-      Enabled: true
+      Enabled: false
       Information:
-        "# Inner Nodes": 5,593
-        "# Leaf Nodes": 22,760
+        "# Inner Nodes": 993
+        "# Leaf Nodes": 2,248
         Resolution: 40 cm
-        Size: 176.30 KiB
+        Size: 24.30 KiB
       Min. Depth: 0
       Name: UFOMap
       Occupancy Thresholds:
@@ -557,7 +560,7 @@ Visualization Manager:
           Y: -1000
           Z: -1000
         Value: false
-      Value: true
+      Value: false
       Voxel Rendering:
         Free:
           Alpha: 0.029999999329447746
@@ -586,6 +589,25 @@ Visualization Manager:
           Scale: 1
           Style: Flat Squares
           Value: false
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /topo_planner_node/wall_map_2d
+      Name: MarkerArray
+      Namespaces:
+        center: true
+        occupied: true
+        unknown: true
+      Queue Size: 100
+      Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 100
+      Name: Axes
+      Radius: 0.10000000149011612
+      Reference Frame: <Fixed Frame>
+      Show Trail: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -614,7 +636,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 59.14555740356445
+      Distance: 140.63134765625
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -622,17 +644,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.13273754715919495
-        Y: -1.2885247468948364
-        Z: 6.05717658996582
+        X: 6.3240647315979
+        Y: -8.089759826660156
+        Z: -2.298894166946411
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5447965860366821
+      Pitch: 0.8547967076301575
       Target Frame: base_link
-      Yaw: 2.945376396179199
+      Yaw: 4.665377140045166
     Saved: ~
 Window Geometry:
   Displays:

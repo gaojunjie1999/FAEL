@@ -65,10 +65,10 @@ namespace perception{
         ros::NodeHandle nh_;
         ros::NodeHandle nh_private_;
 
-        ros::Subscriber odom_sub_;
+        ros::Subscriber odom_sub_, wall_cloud_sub_;
         ros::Subscriber terrain_map_sub_;
 
-        ros::Publisher grid_map_2d_pub_;
+        ros::Publisher grid_map_2d_pub_, wall_map_2d_pub_;
 
         typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2, sensor_msgs::PointCloud2> SyncPolicyLocalCloud;
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2>> terrain_cloud_sub_;
@@ -76,14 +76,17 @@ namespace perception{
         std::shared_ptr<message_filters::Synchronizer<SyncPolicyLocalCloud>> sync_terrain_local_cloud_;
         pcl::PointCloud<pcl::PointXYZI> terrain_cloud_;
         pcl::PointCloud<pcl::PointXYZI> local_cloud_;
+        pcl::PointCloud<pcl::PointXYZI> wall_cloud_;
 
         tf::TransformListener tf_listener_;
 
 
         GridMap2D inflate_map_;
-        GridMap2D map_;  
+        GridMap2D map_; 
+        GridMap2D wall_map_; 
         geometry_msgs::Pose current_pose_;
         bool is_map_updated_;
+        bool have_wall_map = false;
 
         std::string frame_id_;
         double grid_size_;
@@ -109,7 +112,9 @@ namespace perception{
                              const pcl::PointCloud<pcl::PointXYZI> &local_cloud);
 
         void updateGridMap2D(const TerrainMap &terrain_map);
+        void updateWallGridMap2D(const pcl::PointCloud<pcl::PointXYZI> &wall_cloud);
 
+        void wallCallback(const sensor_msgs::PointCloud2ConstPtr &wall_cloud);
     };
 
 }

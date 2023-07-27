@@ -192,8 +192,44 @@ void CloudProcessor::LabelPixel(uint16_t label, int row_id, int col_id)
         if (current_depth < 0.001f) {
             continue;
         }
-        GetNeighbors(labeling_queue, cur_row, cur_col, label);
-      
+        if (label == 1) {
+            GetNeighbors(labeling_queue, cur_row, cur_col, label);
+        } else {
+            GetNeighborsWall(labeling_queue, cur_row, cur_col, label);
+        }  
+    }
+}
+
+void CloudProcessor::GetNeighborsWall(queue<pair<int, int>>& labeling_queue, const int& cur_row, const int& cur_col, const uint16_t label)
+{
+    //cout<<"cur: r="<<cur_row<<" c="<<cur_col<<" range="<<range_mat.at<float>(cur_row, cur_col)<<" angle="<<180/Pi*smoothed_mat.at<float>(cur_row, cur_col)<<endl;
+    int row_num = label_mat.rows;
+    for (int i = cur_row - step_row; i <= cur_row + step_row; i++) {
+        if (i < 0 || i >= row_num || i == cur_row)
+            continue;
+        if (label_mat.at<uint16_t>(i, cur_col) > 0)
+            continue;
+
+        if (fabs(smoothed_mat.at<float>(min(row_num - 1, i + 1), cur_col) - smoothed_mat.at<float>(min(row_num - 1, cur_row + 1), cur_col)) < ground_angle_thresh) {
+                //cout<<"r="<<i<<" c="<<cur_col<<" angle="<<180/Pi*smoothed_mat.at<float>(i, cur_col)<<endl;
+            labeling_queue.push(make_pair(i, cur_col)); 
+        } else {
+            //cout<<"r="<<i<<" c="<<" range="<<range_mat.at<float>(i, cur_col)<<cur_col<<" angle="<<180/Pi*smoothed_mat.at<float>(i, cur_col)<<endl;
+        }
+    }
+               
+    for (int j = cur_col - step_col; j <= cur_col + step_col; j++) {
+            if (j == cur_col || j < 0 || j >= col_num)
+                continue;
+            if (label_mat.at<uint16_t>(cur_row, j) > 0)
+                continue;
+
+
+            if (fabs(smoothed_mat.at<float>(min(row_num - 1, cur_row + 1), j) - smoothed_mat.at<float>(min(row_num - 1, cur_row + 1), cur_col)) < ground_angle_thresh) {
+                labeling_queue.push(make_pair(cur_row, j)); 
+            } else {
+                //cout<<"rr="<<cur_row<<" c="<<j<<" range="<<range_mat.at<float>(cur_row, j)<<" angle="<<180/Pi*smoothed_mat.at<float>(cur_row, j)<<endl;
+            }
     }
 }
 
