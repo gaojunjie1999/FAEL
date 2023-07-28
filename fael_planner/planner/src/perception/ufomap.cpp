@@ -431,7 +431,7 @@ namespace perception {
             count++;
             changed_cell_codes_wall.insert(*it);
         }
-        ROS_WARN("count=%d",count);
+        //ROS_WARN("count=%d",count);
 
         known_cell_codes_wall.insert(changed_cell_codes_wall.begin(), changed_cell_codes_.end());
         submap_wall_.resetChangeDetection();

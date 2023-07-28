@@ -10,7 +10,7 @@ namespace perception {
             : nh_(nh), nh_private_(nh_private), is_map_updated_(false) {
         getParamsFromRos();
         grid_map_2d_pub_ = nh_private_.advertise<visualization_msgs::MarkerArray>("gird_map_2d", 1);
-        wall_map_2d_pub_ = nh_private_.advertise<visualization_msgs::MarkerArray>("wall_map_2d", 1);
+        wall_map_2d_pub_ = nh_private_.advertise<nav_msgs::OccupancyGrid>("wall_map_2d", 1);
 
         odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("base_odometry", 1, &Map2DManager::odomCallback, this);
 
@@ -84,14 +84,289 @@ namespace perception {
 
     void Map2DManager::wallCallback(const sensor_msgs::PointCloud2ConstPtr &wall_cloud) {
         pcl::fromROSMsg(*wall_cloud, wall_cloud_);
+        //ROS_WARN("CALL BACK CLOUD SIZE=%d,", wall_cloud_.points.size());
+        nav_msgs::OccupancyGrid map_topic_msg;
+        setMapTopicMsg(wall_cloud_, map_topic_msg);
+        wall_map_2d_pub_.publish(map_topic_msg);
 
-        /*if (local_cloud->header.frame_id != frame_id_) {
-            if (!pcl_ros::transformPointCloud(frame_id_, local_cloud_, local_cloud_, tf_listener_))//Convert to global frame.
-                return;
+        //grid map to cv
+        cv::Mat img(map_topic_msg.info.height, map_topic_msg.info.width, CV_8U);
+        img.data = (unsigned char *)(&(map_topic_msg.data[0]) );
+        cv::Mat received_image = img.clone();
+
+        cv::imwrite("/home/sustech1411/img_in.png", received_image);
+
+        cv::Mat image_cleaned = cv::Mat::zeros(received_image.size(), CV_8UC1);
+        cv::Mat black_image   = cv::Mat::zeros(received_image.size(), CV_8UC1);
+        image_cleaned = clean_image2(received_image, black_image);
+
+        cv::imwrite("/home/sustech1411/img_out.png", image_cleaned);
+
+        cv::Mat image_mid;
+        cv::Canny(image_cleaned, image_mid, 50, 100);       
+        cv::imwrite("/home/sustech1411/canny.png", image_mid);
+        //to color img
+        cv::Mat three_channel = cv::Mat::zeros(image_mid.rows,image_mid.cols,CV_8UC3);
+        vector<cv::Mat> channels;
+        for (int i=0;i<3;i++)
+        {
+            channels.push_back(image_mid);
+        }
+        cv::merge(channels,three_channel);
+
+        vector<cv::Vec4i> lines;
+        cv::HoughLinesP(image_mid, lines, 1, Pi/180, 20, 10, 15); 
+        //ROS_WARN("size1=%d",lines.size());
+        hough_lines.clear();
+        for(size_t i = 0; i < lines.size(); i++ )  
+        {      
+            cv::Vec4i l = lines[i];  
+            //cv::line(three_channel, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(155, 100, 50), 1);  
+
+            HoughLine new_line;
+            cv::Point2i start_id(l[0], l[1]), end_id(l[2], l[3]);
+            new_line.start_p = start_id;
+            new_line.end_p = end_id;
+            //new_line.line_k = (l[3] - l[1]) / (l[2] - l[0]);
+            new_line.id = 0;
+            new_line.length = sqrt((l[0] - l[2]) * (l[0] - l[2]) + (l[1] - l[3]) * (l[1] - l[3]));
+            hough_lines.emplace_back(new_line);
+        }  
+        //cv::imwrite("/home/sustech1411/hough1.png", three_channel);
+
+
+  
+
+        //cluster and extend lines
+        ROS_WARN("line num before = %d", hough_lines.size());
+        MergeLines();
+        ROS_WARN("line num after = %d", hough_lines.size());
+        for(size_t i = 0; i < hough_lines.size(); i++ )  
+        {   
+            HoughLine l = hough_lines[i];  
+            //cout<<l.start_p.x<<" "<<l.start_p.y<<" "<<l.end_p.x<<" "<<l.end_p.y<<endl;
+            cv::line(three_channel, cv::Point(l.start_p.x, l.start_p.y), cv::Point(l.end_p.x, l.end_p.y), cv::Scalar(155, 100, 50), 1);  
+        }  
+        cv::imwrite("/home/sustech1411/cluster_extend.png", three_channel);
+
+
+
+
+    }
+
+    inline bool Map2DManager::CanMergeLine(const HoughLine& line1, const HoughLine& line2)
+    {
+        cv::Point2i p11 = line1.start_p;
+        cv::Point2i p12 = line1.end_p;
+
+        //cout<<"lin1: "<<"("<<p11.x<<","<<p11.y<<")"<<"("<<p12.x<<","<<p12.y<<")"<<endl;
+        double A1 = p12.y - p11.y;
+        double B1 = p11.x - p12.x;
+        double C1 = p12.x * p11.y - p11.x * p12.y;
+
+        cv::Point2i p21 = line2.start_p;
+        cv::Point2i p22 = line2.end_p;
+        //cout<<"lin2: "<<"("<<p21.x<<","<<p21.y<<")"<<"("<<p22.x<<","<<p22.y<<")"<<endl;
+        double d1 = fabs(A1 * p21.x + B1 * p21.y + C1) / sqrt(A1 * A1 + B1 * B1);
+        double d2 = fabs(A1 * p22.x + B1 * p22.y + C1) / sqrt(A1 * A1 + B1 * B1);
+        //cout<<"d="<<d1<<" "<<d2<<endl;
+//ROS_WARN("di,d2=%f,%f",d1,d2);
+        
+        if (d1 < 10 && d2 < 10 && ) {
+            return true;
+        }
+        return false;
+    }
+
+    void Map2DManager::MergeLines()
+    {
+        vector<HoughLine> lines_out;
+        /*std::map<int, int> idx_map;
+
+        for (int i = 0; i < hough_lines.size(); i++) {  
+            if (idx_map.find(i) != idx_map.end()) continue;  
+            idx_map[i] = 1e3;
+             
+            HoughLine cur_line = hough_lines[i];
+            HoughLine max_line = cur_line;
+            int max_id = i;
+ 
+            for (int j = i + 1; j < hough_lines.size(); j++) {
+                if (idx_map.find(j) != idx_map.end()) continue;
+                HoughLine next_line = hough_lines[j];
+                if (CanMergeLine(cur_line, next_line)) {
+                    if (next_line.length > max_line.length) {
+                        max_line = hough_lines[j];
+                        max_id = j;
+                    }
+                }            
+            }
+            lines_out.emplace_back(max_line);
+            idx_map[max_id] = 1e3;
         }*/
 
-        updateWallGridMap2D(wall_cloud_);
-        wall_map_2d_pub_.publish(wall_map_.generateMapMarkers(wall_map_.grids_, current_pose_));
+        int cur_id = 1;
+        for (int i = 0; i < hough_lines.size(); i++) {
+            HoughLine cur_line = hough_lines[i];
+            if (cur_line.id == 0) {
+                hough_lines[i].id = cur_id;
+                cur_id++;
+            } else {
+                continue;
+            }
+            
+            for (int j = i + 1; j < hough_lines.size(); j++) {
+                HoughLine next_line = hough_lines[j];
+                if (next_line.id != 0) continue; 
+                if (CanMergeLine(cur_line, next_line)) {
+                    //cout<<"id="<<cur_id<<endl;
+                    hough_lines[j].id = cur_id;
+                }
+            }
+           
+        }
+
+       
+        for (int id = 1; id < cur_id; id++) {
+            //cout<<"id="<<id<<endl;
+            int max_id = 0;
+            double max_len = -1e3;
+            for (int i = 0; i < hough_lines.size(); i++) {
+                if (hough_lines[i].id == id) {
+                    //cout<<"i="<<i<<endl;
+                    if (hough_lines[i].length > max_len) {
+                        max_id = i;
+                    }
+                }
+            }
+            lines_out.emplace_back(hough_lines[max_id]);
+            //cout<<"id="<<max_id<<endl;
+        }
+
+        hough_lines = lines_out;
+    }  
+
+    cv::Mat Map2DManager::clean_image2(cv::Mat Occ_Image, cv::Mat &black_image){
+        //Occupancy Image to Free Space	
+        cv::Mat open_space = Occ_Image<10;
+        black_image = Occ_Image>90 & Occ_Image<=100;		
+        cv::Mat Median_Image, out_image, temp_image ;
+        int filter_size=2;
+
+        //cv::imwrite("/home/sustech1411/step0.png", black_image);
+        cv::boxFilter(black_image, temp_image, -1, cv::Size(filter_size, filter_size), cv::Point(-1,-1), false, cv::BORDER_DEFAULT ); // filter open_space
+        black_image = temp_image > filter_size*filter_size/2;  // threshold in filtered
+        //cv::imwrite("/home/sustech1411/step1.png", black_image);
+
+        //cv::dilate(black_image, black_image, cv::Mat(), cv::Point(-1,-1), 1, cv::BORDER_CONSTANT, cv::morphologyDefaultBorderValue() );			// inflate obstacle
+        //cv::imwrite("/home/sustech1411/step2.png", black_image);
+
+        filter_size=10;
+        cv::boxFilter(open_space, temp_image, -1, cv::Size(filter_size, filter_size), cv::Point(-1,-1), false, cv::BORDER_DEFAULT ); // filter open_space
+        Median_Image = temp_image > filter_size*filter_size/2;  // threshold in filtered
+        Median_Image = Median_Image | open_space ;
+        //cv::imwrite("/home/sustech1411/step3.png", Median_Image);
+        //cv::medianBlur(Median_Image, Median_Image, 3);
+        cv::dilate(Median_Image, Median_Image,cv::Mat());
+        //cv::imwrite("/home/sustech1411/step4.png", Median_Image);
+        out_image = Median_Image & ~black_image;// Open space without obstacles
+
+        return out_image;
+    }
+
+    void Map2DManager::setMapTopicMsg(const pcl::PointCloud<pcl::PointXYZ> cloud,
+                    nav_msgs::OccupancyGrid &msg) {
+                        //ROS_WARN("SET MSG");
+        if (!have_wall_map) {
+            //ROS_WARN("SET MSG FALSE");
+            msg.header.seq = 0;
+            msg.header.stamp = ros::Time::now();
+            msg.header.frame_id = frame_id_;
+
+            msg.info.map_load_time = ros::Time::now();
+            msg.info.resolution = grid_size_;
+
+            double x_min, x_max, y_min, y_max;
+            /*double z_max_grey_rate = 0.05;
+            double z_min_grey_rate = 0.95;
+            //? ? ??
+            double k_line =
+                (z_max_grey_rate - z_min_grey_rate) / (thre_z_max - thre_z_min);
+            double b_line =
+                (thre_z_max * z_min_grey_rate - thre_z_min * z_max_grey_rate) /
+                (thre_z_max - thre_z_min);*/
+
+            if (cloud.points.empty()) {
+                ROS_WARN("pcd is empty!\n");
+                return;
+            }
+
+            for (int i = 0; i < cloud.points.size() - 1; i++) {
+                if (i == 0) {
+                x_min = x_max = cloud.points[i].x;
+                y_min = y_max = cloud.points[i].y;
+                }
+
+                double x = cloud.points[i].x;
+                double y = cloud.points[i].y;
+
+                if (x < x_min)
+                x_min = x;
+                if (x > x_max)
+                x_max = x;
+
+                if (y < y_min)
+                y_min = y;
+                if (y > y_max)
+                y_max = y;
+            }
+            // origin的确定
+            msg.info.origin.position.x = -10.0;
+            msg.info.origin.position.y = -10.0;
+            msg.info.origin.position.z = 0.0;
+            msg.info.origin.orientation.x = 0.0;
+            msg.info.origin.orientation.y = 0.0;
+            msg.info.origin.orientation.z = 0.0;
+            msg.info.origin.orientation.w = 1.0;
+            //设置栅格地图大小
+            msg.info.width = 1000;
+            msg.info.height = 1000;
+            //实际地图中某点坐标为(x,y)，对应栅格地图中坐标为[x*map.info.width+y]
+            msg.data.resize(msg.info.width * msg.info.height);
+            msg.data.assign(msg.info.width * msg.info.height, 0);
+
+            ROS_INFO("data size = %d", msg.data.size());
+
+            for (int iter = 0; iter < cloud.points.size(); iter++) {
+                int i = int((cloud.points[iter].x - msg.info.origin.position.x) / grid_size_);
+                if (i < 0 || i >= msg.info.width)
+                    continue;
+
+                int j = int((cloud.points[iter].y - msg.info.origin.position.y) / grid_size_);
+                if (j < 0 || j >= msg.info.height - 1)
+                    continue;
+                // 栅格地图的占有概率[0,100]，这里设置为占据
+                msg.data[i + j * msg.info.width] = 100;
+                //    msg.data[i + j * msg.info.width] = int(255 * (cloud.points[iter].z *
+                //    k_line + b_line)) % 255;
+                last_msg = msg;
+            }
+        } else {
+            //ROS_WARN("SET MSG TRUE");
+            for (int iter = 0; iter < cloud.points.size(); iter++) {
+                int i = int((cloud.points[iter].x - last_msg.info.origin.position.x) / grid_size_);
+                if (i < 0 || i >= last_msg.info.width)
+                    continue;
+
+                int j = int((cloud.points[iter].y - last_msg.info.origin.position.y) / grid_size_);
+                if (j < 0 || j >= last_msg.info.height - 1)
+                    continue;
+                last_msg.data[i + j * last_msg.info.width] = 100;
+                //ROS_WARN("id=%d",i + j * last_msg.info.width);
+                msg = last_msg;
+            }
+        }
+        have_wall_map = true;
     }
 
     void Map2DManager::terrainLocalCloudCallback(const sensor_msgs::PointCloud2ConstPtr &terrain_cloud,
@@ -136,8 +411,8 @@ namespace perception {
             } 
         }
         wall_map_.inflateGridMap2D(inflate_radius_, inflate_empty_radius_);
-https://blog.csdn.net/Draonly/article/details/124537069
-        have_wall_map = true;
+
+        //have_wall_map = true;
     }
 
     void Map2DManager::terrainMapCallback(const traversability_analysis::TerrainMapConstPtr &terrain_map) {

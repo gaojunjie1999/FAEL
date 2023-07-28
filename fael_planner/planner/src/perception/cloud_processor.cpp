@@ -940,21 +940,21 @@ void CloudProcessor::toCloud(const cv::Mat& image_mat)
     {
     case NGCW:
         cloud_ngcw = pt_cloud;
-        ROS_WARN("cloud ngcw");
-        cout<<"cloud ngcw";
+        //ROS_WARN("cloud ngcw");
+        //cout<<"cloud ngcw";
         break;
     case GC:
         cloud_gc = pt_cloud;
-        ROS_WARN("cloud gc");
-        cout<<"cloud gc";
+        //ROS_WARN("cloud gc");
+        //cout<<"cloud gc";
         break;
     case CONTOUR:
         cloud_contour = pt_cloud;
-        ROS_WARN("cloud contour");
-        cout<<"cloud contour";
+        //ROS_WARN("cloud contour");
+       // cout<<"cloud contour";
         break;
     }
-    ROS_WARN("size=%d", pt_cloud.points.size());
+    //OS_WARN("size=%d", pt_cloud.points.size());
     cout<<" size="<<pt_cloud.points.size()<<endl;
     pt_cloud.points.clear();
 }

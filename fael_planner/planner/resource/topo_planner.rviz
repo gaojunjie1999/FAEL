@@ -10,10 +10,12 @@ Panels:
         - /UFOMap1/Voxel Rendering1
         - /UFOMap1/Voxel Rendering1/Occupied1
         - /UFOMap1/Voxel Rendering1/Occupied1/Coloring1
+        - /UFOMap1/Voxel Rendering1/Free1
         - /UFOMap1/Use BBX1
         - /local_path_grid_map_2d1/Namespaces1
         - /MarkerArray1
         - /Axes2
+        - /Map1
       Splitter Ratio: 0.5240740776062012
     Tree Height: 686
   - Class: rviz/Selection
@@ -297,10 +299,10 @@ Visualization Manager:
     - Class: UFOMap
       Enabled: true
       Information:
-        "# Inner Nodes": 12,217
-        "# Leaf Nodes": 28,840
+        "# Inner Nodes": 11,241
+        "# Leaf Nodes": 29,752
         Resolution: 40 cm
-        Size: 303.55 KiB
+        Size: 291.86 KiB
       Min. Depth: 0
       Name: UFOMap
       Occupancy Thresholds:
@@ -326,10 +328,10 @@ Visualization Manager:
           Coloring:
             Color: 0; 255; 0
             Factor: 0.800000011920929
-            Value: Fixed
+            Value: Cell Probability
           Scale: 1
           Style: Flat Squares
-          Value: false
+          Value: true
         Occupied:
           Alpha: 1
           Coloring:
@@ -590,15 +592,13 @@ Visualization Manager:
           Style: Flat Squares
           Value: false
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /topo_planner_node/wall_map_2d
       Name: MarkerArray
       Namespaces:
-        center: true
-        occupied: true
-        unknown: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/Axes
       Enabled: true
@@ -607,6 +607,16 @@ Visualization Manager:
       Radius: 0.10000000149011612
       Reference Frame: <Fixed Frame>
       Show Trail: false
+      Value: true
+    - Alpha: 1
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic: /topo_planner_node/wall_map_2d
+      Unreliable: false
+      Use Timestamp: false
       Value: true
   Enabled: true
   Global Options:
@@ -636,7 +646,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 140.63134765625
+      Distance: 96.44953918457031
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -644,17 +654,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 6.3240647315979
-        Y: -8.089759826660156
-        Z: -2.298894166946411
+        X: 3.2834694385528564
+        Y: 1.193339228630066
+        Z: -3.1386311054229736
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8547967076301575
+      Pitch: 1.0297969579696655
       Target Frame: base_link
-      Yaw: 4.665377140045166
+      Yaw: 4.425369739532471
     Saved: ~
 Window Geometry:
   Displays:

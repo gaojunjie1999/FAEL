@@ -20,6 +20,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_ros/impl/transforms.hpp>
 #include <pcl/common/common.h>
+#include <nav_msgs/OccupancyGrid.h>
 
 #include "grid_map_2d.h"
 #include <traversability_analysis/TerrainMap.h>
@@ -27,7 +28,13 @@
 #include "perception/ufomap.h"
 
 namespace perception{
-
+    struct HoughLine{
+        cv::Point2i start_p;
+        cv::Point2i end_p;
+        double line_k;
+        double length;
+        int id;
+    };
     struct TerrainMap{
         std::string frame_id;
         double min_x;
@@ -60,6 +67,12 @@ namespace perception{
 
     class Map2DManager {
     public:
+        vector<HoughLine> hough_lines;
+        inline bool CanMergeLine(const HoughLine& line1, const HoughLine& line2);
+        void MergeLines();
+
+
+
         typedef std::shared_ptr<Map2DManager> Ptr;
 
         ros::NodeHandle nh_;
@@ -76,7 +89,8 @@ namespace perception{
         std::shared_ptr<message_filters::Synchronizer<SyncPolicyLocalCloud>> sync_terrain_local_cloud_;
         pcl::PointCloud<pcl::PointXYZI> terrain_cloud_;
         pcl::PointCloud<pcl::PointXYZI> local_cloud_;
-        pcl::PointCloud<pcl::PointXYZI> wall_cloud_;
+        //pcl::PointCloud<pcl::PointXYZ> wall_cloud_;
+        pcl::PointCloud<pcl::PointXYZ> wall_cloud_;
 
         tf::TransformListener tf_listener_;
 
@@ -87,6 +101,7 @@ namespace perception{
         geometry_msgs::Pose current_pose_;
         bool is_map_updated_;
         bool have_wall_map = false;
+        nav_msgs::OccupancyGrid last_msg;
 
         std::string frame_id_;
         double grid_size_;
@@ -115,6 +130,10 @@ namespace perception{
         void updateWallGridMap2D(const pcl::PointCloud<pcl::PointXYZI> &wall_cloud);
 
         void wallCallback(const sensor_msgs::PointCloud2ConstPtr &wall_cloud);
+
+        void setMapTopicMsg(const pcl::PointCloud<pcl::PointXYZ> cloud,
+                    nav_msgs::OccupancyGrid &msg);
+        cv::Mat clean_image2(cv::Mat Occ_Image, cv::Mat &black_image);
     };
 
 }
