@@ -115,7 +115,7 @@ namespace perception {
         cv::merge(channels,three_channel);
 
         vector<cv::Vec4i> lines;
-        cv::HoughLinesP(image_mid, lines, 1, Pi/180, 20, 10, 15); 
+        cv::HoughLinesP(image_mid, lines, 1, Pi/180, 20, 5, 5); 
         //ROS_WARN("size1=%d",lines.size());
         hough_lines.clear();
         for(size_t i = 0; i < lines.size(); i++ )  
@@ -140,7 +140,7 @@ namespace perception {
         //cluster and extend lines
         ROS_WARN("line num before = %d", hough_lines.size());
         //MergeLines();
-        ExtendLines();
+        //ExtendLines();
         ROS_WARN("line num after = %d", hough_lines.size());
         for(size_t i = 0; i < hough_lines.size(); i++ )  
         {   
