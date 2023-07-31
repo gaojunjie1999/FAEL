@@ -4,7 +4,7 @@
     <arg name="topo_planner_params" default="topo_planner_1.yaml"/>
 
     <!-- <node pkg="planner" type="topo_planner_node" name="topo_planner_node" output="screen"> -->
-    <node pkg="planner" type="topo_planner_node" name="topo_planner_node" output="log">
+    <node pkg="planner" type="topo_planner_node" name="topo_planner_node" output="screen">
         <remap from="/odometry" to="/base_link/odometry"/>
         <remap from="/explorer_inited" to="/explorer_node/explorer_inited"/>
 

@@ -8,7 +8,7 @@ void CloudProcessor::setCloudInput(pcl::PointCloud<pcl::PointR> cloud_input_)
     reset();
 	cloud_input = cloud_input_;
 	input_cloud_size = cloud_input.points.size();
-    cout<<"input size="<<cloud_input.points.size()<<endl;
+    //cout<<"input size="<<cloud_input.points.size()<<endl;
 	row_num = 16;
 	col_num = input_cloud_size / 16;
 	vertical_deg = 2.0 * 180.0 / Pi;
@@ -389,7 +389,7 @@ void CloudProcessor::ExtractContour(const pcl::PointCloud<pcl::PointR>& cur_clou
     vector<cv::Vec4i> lines;
     cv::Mat res;  
     cv::HoughLinesP(ske_img, lines, 1, Pi/180, 30, 5, 10);  
-    cout<<"size="<<lines.size()<<endl;
+    //cout<<"size="<<lines.size()<<endl;
     //MergeLines(lines);
     /*for( size_t i = 0; i < lines.size(); i++ )  
     {  
@@ -399,7 +399,7 @@ void CloudProcessor::ExtractContour(const pcl::PointCloud<pcl::PointR>& cur_clou
     cv::imwrite("/home/sustech1411/lines.png",ske_img);*/
 
     MergeLines(lines);
-    cout<<"size="<<lines.size()<<endl;
+    //cout<<"size="<<lines.size()<<endl;
     for( size_t i = 0; i < lines.size(); i++ )  
     {  
         cv::Vec4i l = lines[i];  
@@ -955,7 +955,7 @@ void CloudProcessor::toCloud(const cv::Mat& image_mat)
         break;
     }
     //OS_WARN("size=%d", pt_cloud.points.size());
-    cout<<" size="<<pt_cloud.points.size()<<endl;
+    //cout<<" size="<<pt_cloud.points.size()<<endl;
     pt_cloud.points.clear();
 }
 

@@ -21,11 +21,14 @@
 #include <pcl_ros/impl/transforms.hpp>
 #include <pcl/common/common.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <algorithm>
 
 #include "grid_map_2d.h"
 #include <traversability_analysis/TerrainMap.h>
 
 #include "perception/ufomap.h"
+#include "perception/geom.h"
+#include "perception/PolyDetector.h"
 
 namespace perception{
     struct HoughLine{
@@ -71,6 +74,7 @@ namespace perception{
         inline bool CanMergeLine(const HoughLine& line1, const HoughLine& line2);
         void MergeLines();
         void ExtendLines();
+        std::vector<HoughLine> getLineRep(vector<vector<int>> id_clusters);
 
 
         typedef std::shared_ptr<Map2DManager> Ptr;

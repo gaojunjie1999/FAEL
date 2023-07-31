@@ -139,7 +139,7 @@ namespace perception {
 
         //cluster and extend lines
         ROS_WARN("line num before = %d", hough_lines.size());
-        MergeLines();
+        //MergeLines();
         ExtendLines();
         ROS_WARN("line num after = %d", hough_lines.size());
         for(size_t i = 0; i < hough_lines.size(); i++ )  
@@ -150,6 +150,39 @@ namespace perception {
         }  
         cv::imwrite("/home/sustech1411/cluster_extend.png", three_channel);
 
+        //detect polygons
+        std::vector<PolyLine> poly_lines;
+        for (auto line : hough_lines) {           
+            PolyLine poly_line({(float)line.start_p.x, (float)line.start_p.y}, {(float)line.end_p.x, (float)line.end_p.y});
+            //cout<<"line "<<line.start_p.x<<" "<<line.start_p.y<<" "<<line.end_p.x<<" "<<line.end_p.y<<endl;
+            poly_lines.emplace_back(poly_line);
+        }
+         
+        PolyDetector pd; // can be reused
+        for (auto &l : poly_lines)
+            pd.AddLine(l);
+
+        if (!pd.DetectPolygons()) // can be reused
+        {
+            logoutf("%s", "WARN: cannot detect polys!");
+            //return -1;
+        }
+
+
+        for (auto &poly : pd.polys) // here are the detected polys
+        {
+            std::vector<cv::Point> pts;
+            int count = 0;
+            for (auto &p : poly.p)
+            {
+                logoutf("[%u] p:{%f %f}", poly.id, p.x, p.y);
+
+                pts.push_back(cv::Point(p.x, p.y));
+            }
+            cv::polylines(three_channel, pts, true, cv::Scalar(255, 255, 0), 2);
+        }
+        cv::imwrite("/home/sustech1411/polys.png", three_channel);
+        
 
 
 
@@ -197,10 +230,11 @@ namespace perception {
         //cout<<"d="<<d1<<" "<<d2<<endl;
 //ROS_WARN("di,d2=%f,%f",d1,d2);   
        
-        if (d1 > 10 || d2 > 10 ) {
+        if (d1 > 5 || d2 > 5 ) {
             return false;
         }
         //return true;
+
         HoughLine line_s, line_l;
         if (line1.length > line2.length) {
             line_s = line2;
@@ -214,55 +248,45 @@ namespace perception {
         cv::Point2i ps1 = line_s.start_p;
         cv::Point2i ps2 = line_s.end_p;
 
-        double line_l_k = (pl2.y - pl1.y) / (pl2.x - pl1.x);
-        double line_l_b = pl2.y - pl2.x * line_l_k;
-        double pro_p1_x = (line_l_k * (ps1.y - line_l_b) + ps1.x) / (1 + line_l_k * line_l_k);
-        double pro_p1_y = line_l_k * pro_p1_x + line_l_b;
-        double pro_p2_x = (line_l_k * (ps2.y - line_l_b) + ps2.x) / (1 + line_l_k * line_l_k);
-        double pro_p2_y = line_l_k * pro_p2_x + line_l_b;
+        double line_l_k, line_l_b, pro_p1_x, pro_p1_y, pro_p2_x, pro_p2_y;
+        if (pl2.x != pl1.x) {
+            line_l_k = (pl2.y - pl1.y) / (pl2.x - pl1.x);
+            line_l_b = pl2.y - pl2.x * line_l_k;
+            pro_p1_x = (line_l_k * (ps1.y - line_l_b) + ps1.x) / (1 + line_l_k * line_l_k);
+            pro_p1_y = line_l_k * pro_p1_x + line_l_b;
+            pro_p2_x = (line_l_k * (ps2.y - line_l_b) + ps2.x) / (1 + line_l_k * line_l_k);
+            pro_p2_y = line_l_k * pro_p2_x + line_l_b;
+        } else {
+            pro_p1_x = pl2.x;
+            pro_p2_x = pl2.x;
+            pro_p1_y = ps1.y;
+            pro_p2_y = ps2.y;
+        }
 
         Eigen::Vector2d vec11(pl1.x - pro_p1_x, pl1.y - pro_p1_y);
         Eigen::Vector2d vec12(pl2.x - pro_p1_x, pl2.y - pro_p1_y);
         Eigen::Vector2d vec21(pl1.x - pro_p2_x, pl1.y - pro_p2_y);
         Eigen::Vector2d vec22(pl2.x - pro_p2_x, pl2.y - pro_p2_y);
         //ROS_WARN("finish canmerge %f  %f",vec11.dot(vec12),vec21.dot(vec22));
-        if (vec11.dot(vec12) < 0 && vec21.dot(vec22) < 0) 
+        if ((vec11.dot(vec12) < 0 && vec21.dot(vec22) < 0) ||
+            (vec11.dot(vec12) * vec21.dot(vec22) <= 0))
             return true;
-
-        return true;
+            
+        return false;
     }
 
     void Map2DManager::MergeLines()
     {
         vector<HoughLine> lines_out;
-        /*std::map<int, int> idx_map;
-
-        for (int i = 0; i < hough_lines.size(); i++) {  
-            if (idx_map.find(i) != idx_map.end()) continue;  
-            idx_map[i] = 1e3;
-             
-            HoughLine cur_line = hough_lines[i];
-            HoughLine max_line = cur_line;
-            int max_id = i;
- 
-            for (int j = i + 1; j < hough_lines.size(); j++) {
-                if (idx_map.find(j) != idx_map.end()) continue;
-                HoughLine next_line = hough_lines[j];
-                if (CanMergeLine(cur_line, next_line)) {
-                    if (next_line.length > max_line.length) {
-                        max_line = hough_lines[j];
-                        max_id = j;
-                    }
-                }            
-            }
-            lines_out.emplace_back(max_line);
-            idx_map[max_id] = 1e3;
-        }*/
+        vector<vector<int>> rm_ids;
+        rm_ids.resize(hough_lines.size());
 
         int cur_id = 1;
         for (int i = 0; i < hough_lines.size(); i++) {
+            vector<int> rm_id;
             HoughLine cur_line = hough_lines[i];
             if (cur_line.id == 0) {
+                //cout<<"new id="<<cur_id<<endl;
                 hough_lines[i].id = cur_id;
                 cur_id++;
             } else {
@@ -270,18 +294,47 @@ namespace perception {
             }
             
             for (int j = i + 1; j < hough_lines.size(); j++) {
+                //cout<<j<<" "<<hough_lines.size()<<endl;
                 HoughLine next_line = hough_lines[j];
                 if (next_line.id != 0) continue; 
                 if (CanMergeLine(cur_line, next_line)) {
-                    //cout<<"id="<<cur_id<<endl;
+                    //cout<<"canmerge id="<<cur_id<<endl;
                     hough_lines[j].id = cur_id;
+                    
+                    rm_id.emplace_back(j);
+                } 
+                if (!rm_id.empty()) {
+                    rm_ids[i] = rm_id;
                 }
             }
            
         }
 
-       
-        for (int id = 1; id < cur_id; id++) {
+        vector<int> del_id_set;
+        for (int i = 0; i < rm_ids.size(); i++) {
+            if (rm_ids[i].empty())
+                continue;
+            del_id_set.emplace_back(i);
+            for (auto j : rm_ids[i])
+                del_id_set.emplace_back(j);
+        }
+        for (int i = 0; i < hough_lines.size(); i++) {
+            vector<int>::iterator it = find(del_id_set.begin(), del_id_set.end(), i);
+            if (it != del_id_set.end())
+                continue;
+            lines_out.emplace_back(hough_lines[i]);
+        }
+
+        vector<HoughLine> line_rep;
+        line_rep = getLineRep(rm_ids);
+        //cout<<"size "<<line_rep.size()<<endl;
+        for (auto line : line_rep) {
+            lines_out.emplace_back(line);
+        }
+
+
+
+        /*for (int id = 1; id < cur_id; id++) {
             //cout<<"id="<<id<<endl;
             int max_id = 0;
             double max_len = -1e3;
@@ -294,11 +347,51 @@ namespace perception {
                 }
             }
             lines_out.emplace_back(hough_lines[max_id]);
-            //cout<<"id="<<max_id<<endl;
-        }
+            //cout<<"max id="<<max_id<<endl;
+        }*/
 
         hough_lines = lines_out;
     }  
+    
+    std::vector<HoughLine> Map2DManager::getLineRep(vector<vector<int>> id_clusters)
+    {
+        vector<HoughLine> line_set;
+        for (int i = 0; i < id_clusters.size(); i++) {
+            if (id_clusters[i].empty())
+                continue;
+
+            id_clusters[i].emplace_back(i);
+            //cout<<"new cluster"<<endl;
+            double min_start_x{1e3}, min_start_y{1e3}, max_start_x{-1e3}, max_start_y{-1e3};
+            for (int j : id_clusters[i]) {
+                //cout<<"id="<<j<<endl;
+                HoughLine cur_line = hough_lines[j];
+                int min_x = min(cur_line.start_p.x, cur_line.end_p.x);
+                int max_x = max(cur_line.start_p.x, cur_line.end_p.x);
+                int min_y = min(cur_line.start_p.y, cur_line.end_p.y);
+                int max_y = max(cur_line.start_p.y, cur_line.end_p.y);
+                if (min_x < min_start_x)
+                    min_start_x = min_x;
+                if (min_y < min_start_y)
+                    min_start_y = min_y;
+                if (max_x > max_start_x)
+                    max_start_x = max_x;
+                if (max_y > max_start_y)
+                    max_start_y = max_y;
+            }
+
+            HoughLine new_line;
+            new_line.start_p.x = min_start_x;
+            new_line.start_p.y = min_start_y;
+            new_line.end_p.x = max_start_x;
+            new_line.end_p.y = max_start_y;
+            new_line.length = sqrt((min_start_x - max_start_x) * (min_start_x - max_start_x)
+                 + (min_start_y - max_start_y) * (min_start_y - max_start_y));
+            line_set.emplace_back(new_line);
+
+        }
+        return line_set;
+    }
 
     cv::Mat Map2DManager::clean_image2(cv::Mat Occ_Image, cv::Mat &black_image){
         //Occupancy Image to Free Space	

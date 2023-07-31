@@ -157,6 +157,7 @@ add_library(topo_planner
         src/topo_planner/topo_planner.cpp
         src/rapid_cover_planner/rapid_cover_planner.cpp
         src/perception/cloud_processor.cpp
+        src/perception/PolyDetector.cpp
         )
 add_dependencies(topo_planner ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
