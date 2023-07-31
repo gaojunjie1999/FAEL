@@ -70,7 +70,7 @@ namespace perception{
         vector<HoughLine> hough_lines;
         inline bool CanMergeLine(const HoughLine& line1, const HoughLine& line2);
         void MergeLines();
-
+        void ExtendLines();
 
 
         typedef std::shared_ptr<Map2DManager> Ptr;

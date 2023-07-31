@@ -140,6 +140,7 @@ namespace perception {
         //cluster and extend lines
         ROS_WARN("line num before = %d", hough_lines.size());
         MergeLines();
+        ExtendLines();
         ROS_WARN("line num after = %d", hough_lines.size());
         for(size_t i = 0; i < hough_lines.size(); i++ )  
         {   
@@ -152,6 +153,30 @@ namespace perception {
 
 
 
+    }
+
+    void Map2DManager::ExtendLines()
+    {
+        for (auto& line : hough_lines) {
+            //ROS_WARN(" len before = %f", line.length);
+            Eigen::Vector2d vec1(line.end_p.x - line.start_p.x, line.end_p.y - line.start_p.y);
+            vec1 *= ((line.length + 15) / line.length);
+
+            Eigen::Vector2d vec2(line.start_p.x - line.end_p.x, line.start_p.y - line.end_p.y);
+            vec2 *= ((line.length + 15) / line.length);
+            int cur_end_x = line.end_p.x;
+            int cur_end_y = line.end_p.y;
+
+            line.end_p.x = vec1(0) + line.start_p.x;
+            line.end_p.y = vec1(1) + line.start_p.y;
+
+            line.start_p.x = vec2(0) + cur_end_x;
+            line.start_p.y = vec2(1) + cur_end_y;
+
+            line.length = sqrt((line.start_p.x - line.end_p.x) * (line.start_p.x - line.end_p.x) 
+                + (line.start_p.y - line.end_p.y) * (line.start_p.y - line.end_p.y));
+            //ROS_WARN(" len after = %f", line.length);
+        }
     }
 
     inline bool Map2DManager::CanMergeLine(const HoughLine& line1, const HoughLine& line2)
@@ -170,12 +195,41 @@ namespace perception {
         double d1 = fabs(A1 * p21.x + B1 * p21.y + C1) / sqrt(A1 * A1 + B1 * B1);
         double d2 = fabs(A1 * p22.x + B1 * p22.y + C1) / sqrt(A1 * A1 + B1 * B1);
         //cout<<"d="<<d1<<" "<<d2<<endl;
-//ROS_WARN("di,d2=%f,%f",d1,d2);
-        
-        if (d1 < 10 && d2 < 10 && ) {
-            return true;
+//ROS_WARN("di,d2=%f,%f",d1,d2);   
+       
+        if (d1 > 10 || d2 > 10 ) {
+            return false;
         }
-        return false;
+        //return true;
+        HoughLine line_s, line_l;
+        if (line1.length > line2.length) {
+            line_s = line2;
+            line_l = line1;
+        } else {
+            line_s = line1;
+            line_l = line2;
+        }
+        cv::Point2i pl1 = line_l.start_p;
+        cv::Point2i pl2 = line_l.end_p;
+        cv::Point2i ps1 = line_s.start_p;
+        cv::Point2i ps2 = line_s.end_p;
+
+        double line_l_k = (pl2.y - pl1.y) / (pl2.x - pl1.x);
+        double line_l_b = pl2.y - pl2.x * line_l_k;
+        double pro_p1_x = (line_l_k * (ps1.y - line_l_b) + ps1.x) / (1 + line_l_k * line_l_k);
+        double pro_p1_y = line_l_k * pro_p1_x + line_l_b;
+        double pro_p2_x = (line_l_k * (ps2.y - line_l_b) + ps2.x) / (1 + line_l_k * line_l_k);
+        double pro_p2_y = line_l_k * pro_p2_x + line_l_b;
+
+        Eigen::Vector2d vec11(pl1.x - pro_p1_x, pl1.y - pro_p1_y);
+        Eigen::Vector2d vec12(pl2.x - pro_p1_x, pl2.y - pro_p1_y);
+        Eigen::Vector2d vec21(pl1.x - pro_p2_x, pl1.y - pro_p2_y);
+        Eigen::Vector2d vec22(pl2.x - pro_p2_x, pl2.y - pro_p2_y);
+        //ROS_WARN("finish canmerge %f  %f",vec11.dot(vec12),vec21.dot(vec22));
+        if (vec11.dot(vec12) < 0 && vec21.dot(vec22) < 0) 
+            return true;
+
+        return true;
     }
 
     void Map2DManager::MergeLines()
